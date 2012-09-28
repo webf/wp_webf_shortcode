@@ -141,6 +141,11 @@ id is optional but only one webf
 
 function webf_func( $atts, $content=null ) {
 
+    global $webf_matches;
+
+    if (isset($webf_matches[$content]))
+        $content=$webf_matches[$content];
+
     if (!isset($atts["tpl"])){ return "tpl attribute not set"; } else $tpl=$atts["tpl"];
     if (!isset($atts["class"])){ $cls="null"; } else $cls='"'.$atts["class"].'"';
 
@@ -160,14 +165,6 @@ EOQ;
         $idCode = "";
     }
 
-
-    if (!is_null($data_ref)){
-        $dataRef = <<<EOQ
-<script src="$data_ref.js" type="text/javascript"></script>
-EOQ;
-    } else
-        $dataRef='';
-
     $parts = preg_split("/[,]/", $tpl);
     $repList = '';
     foreach ($parts as $part) {
@@ -176,8 +173,11 @@ EOQ;
 EOQ;
     }
 
-    if (is_null($data)) $data=<<<EOQ
-{
+    if (!is_null($data_ref)){
+        $dataRef = <<<EOQ
+<script src="$data_ref.js" type="text/javascript"></script>
+EOQ;
+    } else if (is_null($data)) $data=<<<EOQ
     hasMoreData: 1,
 
     getData: function(name){
@@ -185,38 +185,26 @@ EOQ;
         return { $content };
     },
     loadData: function(){ this.hasMoreData--; }
-}
 EOQ;
 
 
     if (!is_null($data)){
         $dataCode="{ $data }";
-    } if (is_null($dataRef)){
+    } else if (is_null($dataRef)){
         return <<<EOQ
 Data loader not found! usage:
-        [webf data="your data"] or
-        [webf dataRef="your script"] or
+        [webf data="key1:'val1', key2:'v2'"] or
+        [webf dataRef="your data script urlt"] or
             var dataOf"id"={
                 hasMoreData: 1,
 
                 getData: function(name){
-                    switch (name){
-                        "d1": return {...}
-                    }
+                    return yourData
                 },
                 loadData: function(){}
             };
-        [webf]your data[/webf]
-                hasMoreData: 1,
-
-                getData: function(name){
-                    switch (name){
-                        "d1": return {...}
-                    }
-                },
-                loadData: function(webf){}
+        [webf]key1: 'val1', ...[/webf]
 EOQ;
-
     } else {
         $dataCode="dataOf$id";
     }
@@ -243,5 +231,25 @@ EOQ;
 };
 
 add_shortcode( 'webf', 'webf_func' );
+/**
+  Worpress may insert <br/> inside the content area. the following code prevents ot.
+ */
+add_filter('the_content', 'webf_before_format', 0); 
+
+$webf_matches = array();
+$webf_id = 0;
+
+function holdWebf($match){
+    global $webf_matches, $webf_id;
+
+    $key = "webf_".($webf_id++);
+    $webf_matches[$key] = $match[2];
+
+    return $match[1].$key.$match[3];
+}
+
+function webf_before_format($content){
+    return preg_replace_callback( "/(\[webf[^]]+?\])(.*?)(\[\/webf\])/siu", "holdWebf", $content );
+}
 
 ?>
