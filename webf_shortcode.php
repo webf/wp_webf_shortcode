@@ -294,14 +294,4 @@ function holdWebf($match){
 function webf_before_format($content){
     return preg_replace_callback( "/(\[webf[^]]+?\])(.*?)(\[\/webf\])/siu", "holdWebf", $content ); }
 
-function param_func( $atts, $content=null ) {
-    if (isset($_GET['id'])){
-        return $content;
-    } else {
-        return "not enabled";
-    }
-}
-add_shortcode( 'param', 'param_func' );
-
-
 ?>
