@@ -139,6 +139,16 @@ id is optional but only one webf
 
 */
 
+$webf_loaded_script = array();
+
+function is_script_loaded($script){
+    global $webf_loaded_script;
+    foreach($webf_loaded_script as $s) {
+        if ($s==$script) return true;
+    }
+    $webf_loaded_script[]=$script;
+    return false;
+}
 function webf_func( $atts, $content=null ) {
 
     global $webf_matches;
@@ -146,7 +156,11 @@ function webf_func( $atts, $content=null ) {
     if (isset($webf_matches[$content]))
         $content=$webf_matches[$content];
 
-    if (!isset($atts["tpl"])){ return "tpl attribute not set"; } else $tpl=$atts["tpl"];
+    if (!isset($atts["tpl"])){
+        if (!isset($atts["class"]))
+        return "tpl attribute not set";
+        $tpl="template-".$atts["class"];
+    } else $tpl=$atts["tpl"];
     if (!isset($atts["class"])){ $cls="null"; } else $cls='"'.$atts["class"].'"';
 
     if (isset($atts["rep"])) $rep=$atts["rep"]; else $rep='http://archive.portablehtml.com/dust-repo';
@@ -165,13 +179,35 @@ EOQ;
         $idCode = "";
     }
 
+    $scriptList = array();
+    if (!is_script_loaded("http://akdubya.github.com/dustjs/lib/dust.js"))
+        $scriptList[]="http://akdubya.github.com/dustjs/lib/dust.js";
+    if (!is_script_loaded("http://akdubya.github.com/dustjs/lib/parser.js"))
+        $scriptList[]="http://akdubya.github.com/dustjs/lib/parser.js";
+    if (!is_script_loaded("http://akdubya.github.com/dustjs/lib/compiler.js"))
+        $scriptList[]="http://akdubya.github.com/dustjs/lib/compiler.js";
+    if (isset($atts["jquery"]) && !is_script_loaded("http://akdubya.github.com/dustjs/vendor/jquery.min.js"))
+        $scriptList[]="http://akdubya.github.com/dustjs/vendor/jquery.min.js";
+    if (!is_script_loaded("$rep/dust-manager.js"))
+        $scriptList[]="$rep/dust-manager.js";
+    if (isset($atts["lib"])){
+        $parts = preg_split("/[,]/", $atts["lib"]);
+        foreach ($parts as $part) {
+            if (!is_script_loaded($part)){
+                $scriptList[]=$part;
+            }
+
+        }
+    }
     $parts = preg_split("/[,]/", $tpl);
     $repList = '';
     foreach ($parts as $part) {
-        $repList .= <<<EOQ
-<script src="$rep/$part.js" type="text/javascript"></script>
-EOQ;
+        if (!is_script_loaded("$rep/$part.js")){
+            $scriptList[]="$rep/$part.js";
+        }
     }
+
+
 
     if (!is_null($data_ref)){
         $dataRef = <<<EOQ
@@ -193,30 +229,39 @@ EOQ;
     } else if (is_null($dataRef)){
         return <<<EOQ
 Data loader not found! usage:
-        [webf data="key1:'val1', key2:'v2'"] or
-        [webf dataRef="your data script urlt"] or
+        [webf data="your data"] or
+        [webf dataRef="your script"] or
             var dataOf"id"={
                 hasMoreData: 1,
 
                 getData: function(name){
-                    return yourData
+                    switch (name){
+                        "d1": return {...}
+                    }
                 },
                 loadData: function(){}
             };
-        [webf]key1: 'val1', ...[/webf]
+        [webf]your data[/webf]
+                hasMoreData: 1,
+
+                getData: function(name){
+                    switch (name){
+                        "d1": return {...}
+                    }
+                },
+                loadData: function(webf){}
 EOQ;
     } else {
         $dataCode="dataOf$id";
     }
 
+    foreach ($scriptList as $part) {
+        $repList .= <<<EOQ
+<script src="$part" type="text/javascript"></script>
+EOQ;
+    }
 
     return <<<EOQ
-<script src="http://akdubya.github.com/dustjs/lib/dust.js" type="text/javascript"></script>
-<script src="http://akdubya.github.com/dustjs/lib/parser.js" type="text/javascript"></script>
-<script src="http://akdubya.github.com/dustjs/lib/compiler.js" type="text/javascript"></script>
-<script src="http://akdubya.github.com/dustjs/vendor/jquery.min.js" type="text/javascript"></script>
-
-<script src="$rep/dust-manager.js" type="text/javascript"></script>
 $repList
 $dataRef
 
@@ -231,17 +276,15 @@ EOQ;
 };
 
 add_shortcode( 'webf', 'webf_func' );
-/**
-  Worpress may insert <br/> inside the content area. the following code prevents ot.
- */
-add_filter('the_content', 'webf_before_format', 0); 
+
+add_filter('the_content', 'webf_before_format', 0); // 7 is simply a lucky number, nothing more =)
 
 $webf_matches = array();
 $webf_id = 0;
 
 function holdWebf($match){
     global $webf_matches, $webf_id;
-
+//echo print_r($match);
     $key = "webf_".($webf_id++);
     $webf_matches[$key] = $match[2];
 
@@ -249,7 +292,16 @@ function holdWebf($match){
 }
 
 function webf_before_format($content){
-    return preg_replace_callback( "/(\[webf[^]]+?\])(.*?)(\[\/webf\])/siu", "holdWebf", $content );
+    return preg_replace_callback( "/(\[webf[^]]+?\])(.*?)(\[\/webf\])/siu", "holdWebf", $content ); }
+
+function param_func( $atts, $content=null ) {
+    if (isset($_GET['id'])){
+        return $content;
+    } else {
+        return "not enabled";
+    }
 }
+add_shortcode( 'param', 'param_func' );
+
 
 ?>
