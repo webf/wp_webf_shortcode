@@ -17,6 +17,8 @@ id      say to create a div where to put the webf
 ref     is an element where to put webf
 class   is means which template to use (if more than one is present)
 tpl     is the repository files for the webf
+lib     comma separated library list requred by webf
+jquery	include jquery library if not available
 data, data_ref and content
         control how data is generated
 -----------------------------------------
@@ -277,14 +279,13 @@ EOQ;
 
 add_shortcode( 'webf', 'webf_func' );
 
-add_filter('the_content', 'webf_before_format', 0); // 7 is simply a lucky number, nothing more =)
+add_filter('the_content', 'webf_before_format', 0);
 
 $webf_matches = array();
 $webf_id = 0;
 
 function holdWebf($match){
     global $webf_matches, $webf_id;
-//echo print_r($match);
     $key = "webf_".($webf_id++);
     $webf_matches[$key] = $match[2];
 
